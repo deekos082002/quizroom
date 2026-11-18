@@ -62,7 +62,19 @@ export function registerActionRoutes(app: Hono<AppContext>, resolveAuth: Resolve
     // returns the handler argument, env secrets included, as the response.
     const action = lookupOwn(actions, name)
     if (!action) return c.json({ error: 'Action not found' }, 404)
-    const params = await c.req.json<Record<string, unknown>>()
+    // A malformed or non-object body is the caller's mistake: answer 400 in
+    // the action envelope rather than letting the parse throw into a 500.
+    let params: Record<string, unknown>
+    try {
+      const body: unknown = await c.req.json()
+      if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('not an object')
+      params = body as Record<string, unknown>
+    } catch {
+      return c.json(
+        { success: false, code: 'invalid_params', error: 'Request body must be a JSON object' },
+        400,
+      )
+    }
     const tools = createActionTools(c.env, auth.userId, callerJwt)
     const result = await action({ userId: auth.userId, params, tools, env: c.env, callerJwt })
     return c.json(result as unknown as Record<string, unknown>)

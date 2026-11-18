@@ -5,18 +5,10 @@
  */
 
 import { useState } from 'react'
-import { useMutations } from 'deepspace'
 import { useToast } from '@/components/ui'
-
-interface AnswerFields {
-  quizId: string
-  questionId: string
-  choiceIndex: number
-  playerId: string
-}
+import { ActionError, callAction } from '@/lib/call-action'
 
 interface Props {
-  quizId: string
   questionId: string
   number: number
   total: number
@@ -30,7 +22,6 @@ interface Props {
 }
 
 export function QuizQuestion({
-  quizId,
   questionId,
   number,
   total,
@@ -42,7 +33,6 @@ export function QuizQuestion({
   answeredCount,
   playerCount,
 }: Props) {
-  const { createConfirmed } = useMutations<AnswerFields>('answers')
   const { error } = useToast()
   const [submitting, setSubmitting] = useState(false)
   const locked = myChoice !== null || submitting
@@ -51,12 +41,16 @@ export function QuizQuestion({
     if (locked) return
     setSubmitting(true)
     try {
+      // The server checks game state, current question and membership;
       // playerId is bound to the caller server-side.
-      await createConfirmed({ quizId, questionId, choiceIndex } as AnswerFields)
+      await callAction('submitAnswer', { questionId, choiceIndex })
     } catch (e) {
       const msg = e instanceof Error ? e.message : ''
-      if (/unique|duplicate|exist/i.test(msg)) error('Already answered', 'You can answer each question once')
-      else error('Could not submit answer', msg || undefined)
+      if (e instanceof ActionError && e.code === 'already_answered') {
+        error('Already answered', 'You can answer each question once')
+      } else {
+        error('Could not submit answer', msg || undefined)
+      }
     } finally {
       setSubmitting(false)
     }

@@ -14,6 +14,7 @@ import { quizzesSchema } from './schemas/quizzes-schema'
 import { questionsSchema } from './schemas/questions-schema'
 import { playersSchema } from './schemas/players-schema'
 import { answersSchema } from './schemas/answers-schema'
+import { generationLocksSchema } from './schemas/generation-locks-schema'
 
 export const schemas: CollectionSchema[] = [
   usersSchema,
@@ -22,4 +23,5 @@ export const schemas: CollectionSchema[] = [
   questionsSchema,
   playersSchema,
   answersSchema,
+  generationLocksSchema,
 ]

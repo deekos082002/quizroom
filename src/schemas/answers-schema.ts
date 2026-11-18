@@ -1,5 +1,7 @@
 /**
  * Answers: one per player per question. uniqueOn + update:false = answer once.
+ * Members can't create directly: the submitAnswer action is the only writer,
+ * so it can enforce game state (playing, current question, joined player).
  */
 
 import type { CollectionSchema } from 'deepspace/schema'
@@ -16,13 +18,7 @@ export const answersSchema: CollectionSchema = {
   ],
   permissions: {
     viewer: { read: false, create: false, update: false, delete: false },
-    member: {
-      read: true,
-      create: true,
-      update: false,
-      delete: false,
-      writableFields: ['quizId', 'questionId', 'choiceIndex'],
-    },
+    member: { read: true, create: false, update: false, delete: false },
     admin: { read: true, create: true, update: true, delete: true },
   },
 }

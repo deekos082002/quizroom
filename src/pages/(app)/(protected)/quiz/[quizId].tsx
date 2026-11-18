@@ -6,7 +6,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
-  getAuthToken,
   useMutations,
   usePresenceRoom,
   useQuery,
@@ -19,6 +18,7 @@ import { Leaderboard } from '@/components/Leaderboard'
 import { Results } from '@/components/Results'
 import { rankPlayers } from '@/lib/scoring'
 import { useJoinQuiz, type PlayerFields } from '@/lib/use-join-quiz'
+import { callAction } from '@/lib/call-action'
 
 interface QuizFields {
   code: string
@@ -86,7 +86,9 @@ export default function QuizRoomPage() {
   const { records: allAnswers } = useQuery<AnswerRow>('answers', {
     where: { quizId: quizId ?? '' },
   })
-  const answers = allAnswers.filter((a) => a.data.quizId === quizId)
+  // Only joined players' answers count, so "X/Y answered" can't exceed Y.
+  const playerIds = new Set(players.map((p) => p.data.playerId))
+  const answers = allAnswers.filter((a) => a.data.quizId === quizId && playerIds.has(a.data.playerId))
   const currentIndex = quiz?.data.currentIndex ?? 0
   const current = sortedQuestions.find((q) => q.data.index === currentIndex)
   const currentAnswers = current ? answers.filter((a) => a.data.questionId === current.recordId) : []
@@ -153,14 +155,7 @@ export default function QuizRoomPage() {
     if (!quizId) return
     setGenerating(true)
     try {
-      const token = await getAuthToken()
-      const res = await fetch('/api/actions/generateQuestions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ quizId }),
-      })
-      const body = (await res.json()) as { success?: boolean; error?: string }
-      if (!res.ok || !body.success) throw new Error(body.error ?? `Request failed (${res.status})`)
+      await callAction('generateQuestions', { quizId })
     } catch (err) {
       error('Could not generate questions', err instanceof Error ? err.message : undefined)
     } finally {
@@ -276,7 +271,6 @@ export default function QuizRoomPage() {
               {current ? (
                 <QuizQuestion
                   key={current.recordId}
-                  quizId={quizId ?? ''}
                   questionId={current.recordId}
                   number={currentIndex + 1}
                   total={questionCount}

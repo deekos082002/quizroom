@@ -36,3 +36,9 @@
 - Design tradeoff the agent raised and I kept: scores update only when the host moves on, not on each answer, so the leaderboard can't leak whether an answer was correct. Players see a ✓ when someone has answered.
 - Plan mode wasn't on for this step, so I reviewed all 5 changed files in Source Control afterwards.
 - I tested a full game: correct/incorrect picks shown in green/red to the player, host sees only correct answers, same final ranking on both screens.
+
+## Security review (Opus, plan mode)
+- Agent reviewed secrets, permissions, the action, and platform use. No secrets exposed; the permission matrix held.
+- Found: players could submit answers outside the current question/after finish via devtools; anyone could join finished games and pick any display name. Fixed with submitAnswer and joinQuiz server actions (status + current-question checks, server-set name). Also hardened generateQuestions (lock, size check before reading, JSON guard).
+- I chose to skip lower-priority items (game-transition action, cascade delete, background jobs) and kept T1 as a known tradeoff.
+- Re-tested a full two-account game after the fixes.
