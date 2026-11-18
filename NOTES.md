@@ -30,3 +30,9 @@
 - I added lessons from Step 3 to the prompt (member permissions, relative URLs) so the agent wouldn't repeat those bugs; its plan needed no schema changes.
 - Agent added host controls (Start/Next/Finish) and a QuizQuestion component; correctIndex is never passed to players.
 - I tested with 2 accounts through all 10 questions: screens sync live, answers lock, host counter updates, player has no host controls, both see "Game finished".
+
+## Step 5 — live leaderboard + results
+- Agent added scoring.ts (scores computed, never stored) with 3 unit tests, plus Leaderboard and Results components.
+- Design tradeoff the agent raised and I kept: scores update only when the host moves on, not on each answer, so the leaderboard can't leak whether an answer was correct. Players see a ✓ when someone has answered.
+- Plan mode wasn't on for this step, so I reviewed all 5 changed files in Source Control afterwards.
+- I tested a full game: correct/incorrect picks shown in green/red to the player, host sees only correct answers, same final ranking on both screens.

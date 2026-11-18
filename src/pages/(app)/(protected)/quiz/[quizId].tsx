@@ -15,6 +15,9 @@ import {
 } from 'deepspace'
 import { Button, useToast } from '@/components/ui'
 import { QuizQuestion } from '@/components/QuizQuestion'
+import { Leaderboard } from '@/components/Leaderboard'
+import { Results } from '@/components/Results'
+import { rankPlayers } from '@/lib/scoring'
 import { useJoinQuiz, type PlayerFields } from '@/lib/use-join-quiz'
 
 interface QuizFields {
@@ -89,6 +92,27 @@ export default function QuizRoomPage() {
   const currentAnswers = current ? answers.filter((a) => a.data.questionId === current.recordId) : []
   const myAnswer = user ? currentAnswers.find((a) => a.data.playerId === user.id) : undefined
   const isLastQuestion = currentIndex >= questionCount - 1
+  // Scores are derived from answers vs correctIndex. While playing, only
+  // questions the host has moved past count, so the open question isn't leaked.
+  const hostId = quiz?.data.hostId ?? ''
+  const scoreQuestions = sortedQuestions.map((q) => ({
+    id: q.recordId,
+    index: q.data.index,
+    correctIndex: q.data.correctIndex,
+  }))
+  const scoreAnswers = answers.map((a) => a.data)
+  const finished = quiz?.data.status === 'finished'
+  const ranking = rankPlayers(
+    players.map((p) => p.data),
+    scoreQuestions,
+    scoreAnswers,
+    hostId,
+    finished ? Infinity : currentIndex,
+  )
+  const answeredIds = new Set(currentAnswers.map((a) => a.data.playerId))
+  const myPicks = new Map(
+    answers.filter((a) => user && a.data.playerId === user.id).map((a) => [a.data.questionId, a.data.choiceIndex]),
+  )
   const [advancing, setAdvancing] = useState(false)
 
   // Host-only: the server's update:'own' rule rejects anyone else.
@@ -282,10 +306,23 @@ export default function QuizRoomPage() {
               )}
             </>
           )}
-          {quiz.data.status === 'finished' && (
-            <section className="mt-6 rounded-lg border border-border bg-card p-6 text-center">
-              <h2 className="text-lg font-semibold">Game finished</h2>
-            </section>
+          {quiz.data.status === 'playing' && (
+            <Leaderboard ranking={ranking} answeredIds={answeredIds} meId={user?.id} />
+          )}
+          {finished && (
+            <Results
+              ranking={ranking}
+              questions={sortedQuestions.map((q) => ({
+                id: q.recordId,
+                index: q.data.index,
+                prompt: q.data.prompt,
+                choices: q.data.choices,
+                correctIndex: q.data.correctIndex,
+              }))}
+              myPicks={myPicks}
+              meId={user?.id}
+              showMine={!isHost}
+            />
           )}
           {quiz.data.status === 'lobby' && questionCount > 0 && (
             <section className="mt-6 rounded-lg border border-border bg-card p-6">
