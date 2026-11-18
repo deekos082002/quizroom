@@ -1,11 +1,12 @@
 /**
- * /quiz: create a room (join-by-code arrives in Step 2).
+ * /quiz: create a room or join one by code.
  */
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutations } from 'deepspace'
-import { Button, useToast } from '@/components/ui'
+import { useMutations, useQuery } from 'deepspace'
+import { Button, Input, useToast } from '@/components/ui'
+import { useJoinQuiz } from '@/lib/use-join-quiz'
 
 // No O/0/I/1 so codes are easy to read aloud.
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -30,6 +31,11 @@ export default function QuizHomePage() {
   const { error } = useToast()
   const { createConfirmed, ready } = useMutations<QuizFields>('quizzes')
   const [creating, setCreating] = useState(false)
+  const { records: quizzes } = useQuery<QuizFields>('quizzes')
+  const { join, ready: joinReady } = useJoinQuiz()
+  const [code, setCode] = useState('')
+  const [joining, setJoining] = useState(false)
+  const [notFound, setNotFound] = useState(false)
 
   async function handleCreate() {
     setCreating(true)
@@ -56,6 +62,24 @@ export default function QuizHomePage() {
     }
   }
 
+  async function handleJoin() {
+    const normalized = code.trim().toUpperCase()
+    const quiz = quizzes.find((q) => q.data.code === normalized)
+    if (!quiz) {
+      setNotFound(true)
+      return
+    }
+    setJoining(true)
+    try {
+      await join(quiz.recordId)
+      navigate(`/quiz/${quiz.recordId}`)
+    } catch (e) {
+      error('Could not join room', e instanceof Error ? e.message : undefined)
+    } finally {
+      setJoining(false)
+    }
+  }
+
   return (
     <div className="min-h-full text-foreground">
       <div className="mx-auto max-w-2xl px-6 py-20">
@@ -68,6 +92,38 @@ export default function QuizHomePage() {
           <Button onClick={handleCreate} disabled={!ready} loading={creating}>
             Create room
           </Button>
+        </section>
+        <section className="mt-6 rounded-lg border border-border bg-card p-6">
+          <h2 className="mb-2 text-lg font-semibold">Join a game</h2>
+          <p className="mb-6 text-sm text-muted-foreground">
+            Enter the code from your host.
+          </p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              void handleJoin()
+            }}
+            className="flex gap-3"
+          >
+            <Input
+              value={code}
+              onChange={(e) => {
+                setCode(e.target.value)
+                setNotFound(false)
+              }}
+              placeholder="ABC123"
+              maxLength={CODE_LENGTH}
+              autoComplete="off"
+              className="font-mono uppercase tracking-widest"
+              data-testid="join-code-input"
+            />
+            <Button type="submit" disabled={!joinReady || !code.trim()} loading={joining}>
+              Join
+            </Button>
+          </form>
+          {notFound && (
+            <p className="mt-3 text-sm text-destructive">No room found for that code.</p>
+          )}
         </section>
       </div>
     </div>
