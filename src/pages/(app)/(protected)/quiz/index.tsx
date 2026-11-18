@@ -23,7 +23,7 @@ interface QuizFields {
   title?: string
   status: string
   currentIndex: number
-  questionCount: number
+  questionCount?: number
 }
 
 export default function QuizHomePage() {
@@ -47,7 +47,6 @@ export default function QuizHomePage() {
             code: generateCode(),
             status: 'lobby',
             currentIndex: 0,
-            questionCount: 0,
           })
           navigate(`/quiz/${id}`)
           return

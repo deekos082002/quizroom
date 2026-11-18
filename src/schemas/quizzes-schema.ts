@@ -30,7 +30,19 @@ export const quizzesSchema: CollectionSchema = {
       create: true,
       update: 'own',
       delete: 'own',
-      writableFields: ['title', 'status', 'currentIndex', 'notesFileKey', 'notesFileName'],
+      // writableFields covers create AND update, so it lists everything the
+      // create call sends. `code` stays safe because the column is immutable
+      // (rejected on any update), and update is 'own' so only the host can
+      // change status/currentIndex/notes fields.
+      // questionCount is NOT writable: only generateQuestions sets it.
+      writableFields: [
+        'code',
+        'title',
+        'status',
+        'currentIndex',
+        'notesFileKey',
+        'notesFileName',
+      ],
     },
     admin: { read: true, create: true, update: true, delete: true },
   },
