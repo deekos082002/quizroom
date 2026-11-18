@@ -25,3 +25,8 @@
 - Bug found by testing as a non-owner account: members couldn't create rooms ("Role 'member' cannot modify field 'code'"). My owner account is admin and bypassed the rules, so earlier tests missed it. Fixed writableFields.
 - PDF test with my 37-page lecture: server log showed the model read it (60k tokens) but returned >10 questions, failing a strict "exactly 10" check. Changed to accept 10+ and keep 10.
 - Verified: player sees only "10 questions ready"; generation works on a non-owner account (billing OK).
+
+## Step 4 — game flow + answer once
+- I added lessons from Step 3 to the prompt (member permissions, relative URLs) so the agent wouldn't repeat those bugs; its plan needed no schema changes.
+- Agent added host controls (Start/Next/Finish) and a QuizQuestion component; correctIndex is never passed to players.
+- I tested with 2 accounts through all 10 questions: screens sync live, answers lock, host counter updates, player has no host controls, both see "Game finished".

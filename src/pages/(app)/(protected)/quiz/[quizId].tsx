@@ -14,6 +14,7 @@ import {
   useUser,
 } from 'deepspace'
 import { Button, useToast } from '@/components/ui'
+import { QuizQuestion } from '@/components/QuizQuestion'
 import { useJoinQuiz, type PlayerFields } from '@/lib/use-join-quiz'
 
 interface QuizFields {
@@ -24,6 +25,7 @@ interface QuizFields {
   notesFileKey?: string
   notesFileName?: string
   questionCount?: number
+  currentIndex?: number
 }
 
 interface QuestionFields {
@@ -32,6 +34,13 @@ interface QuestionFields {
   prompt: string
   choices: string[]
   correctIndex: number
+}
+
+interface AnswerRow {
+  quizId: string
+  questionId: string
+  choiceIndex: number
+  playerId: string
 }
 
 export default function QuizRoomPage() {
@@ -64,10 +73,36 @@ export default function QuizRoomPage() {
   const { records: allQuestions } = useQuery<QuestionFields>('questions', {
     where: { quizId: quizId ?? '' },
   })
-  const questions = isHost
-    ? allQuestions.filter((q) => q.data.quizId === quizId).sort((a, b) => a.data.index - b.data.index)
-    : []
+  const sortedQuestions = allQuestions
+    .filter((q) => q.data.quizId === quizId)
+    .sort((a, b) => a.data.index - b.data.index)
+  const questions = isHost ? sortedQuestions : []
   const questionCount = quiz?.data.questionCount ?? 0
+
+  // Game flow: current question and answers.
+  const { records: allAnswers } = useQuery<AnswerRow>('answers', {
+    where: { quizId: quizId ?? '' },
+  })
+  const answers = allAnswers.filter((a) => a.data.quizId === quizId)
+  const currentIndex = quiz?.data.currentIndex ?? 0
+  const current = sortedQuestions.find((q) => q.data.index === currentIndex)
+  const currentAnswers = current ? answers.filter((a) => a.data.questionId === current.recordId) : []
+  const myAnswer = user ? currentAnswers.find((a) => a.data.playerId === user.id) : undefined
+  const isLastQuestion = currentIndex >= questionCount - 1
+  const [advancing, setAdvancing] = useState(false)
+
+  // Host-only: the server's update:'own' rule rejects anyone else.
+  async function setGameState(patch: Partial<QuizFields> & { currentIndex?: number }) {
+    if (!quizId) return
+    setAdvancing(true)
+    try {
+      await putQuiz(quizId, patch)
+    } catch (err) {
+      error('Could not update game', err instanceof Error ? err.message : undefined)
+    } finally {
+      setAdvancing(false)
+    }
+  }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -202,7 +237,57 @@ export default function QuizRoomPage() {
               </div>
             </section>
           )}
-          {questionCount > 0 && (
+          {isHost && quiz.data.status === 'lobby' && (
+            <Button
+              className="mt-6"
+              onClick={() => setGameState({ status: 'playing', currentIndex: 0 })}
+              disabled={questionCount === 0}
+              loading={advancing}
+            >
+              Start game
+            </Button>
+          )}
+          {quiz.data.status === 'playing' && (
+            <>
+              {current ? (
+                <QuizQuestion
+                  key={current.recordId}
+                  quizId={quizId ?? ''}
+                  questionId={current.recordId}
+                  number={currentIndex + 1}
+                  total={questionCount}
+                  prompt={current.data.prompt}
+                  choices={current.data.choices}
+                  isHost={isHost}
+                  canAnswer={isPlayer}
+                  myChoice={myAnswer ? myAnswer.data.choiceIndex : null}
+                  answeredCount={currentAnswers.length}
+                  playerCount={players.length}
+                />
+              ) : (
+                <p className="mt-6 text-sm text-muted-foreground">Loading question...</p>
+              )}
+              {isHost && (
+                <Button
+                  className="mt-6"
+                  onClick={() =>
+                    isLastQuestion
+                      ? setGameState({ status: 'finished' })
+                      : setGameState({ currentIndex: currentIndex + 1 })
+                  }
+                  loading={advancing}
+                >
+                  {isLastQuestion ? 'Finish game' : 'Next question'}
+                </Button>
+              )}
+            </>
+          )}
+          {quiz.data.status === 'finished' && (
+            <section className="mt-6 rounded-lg border border-border bg-card p-6 text-center">
+              <h2 className="text-lg font-semibold">Game finished</h2>
+            </section>
+          )}
+          {quiz.data.status === 'lobby' && questionCount > 0 && (
             <section className="mt-6 rounded-lg border border-border bg-card p-6">
               <h2 className="text-lg font-semibold" data-testid="questions-ready">
                 {questionCount} questions ready
